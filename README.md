@@ -60,6 +60,49 @@ Its hooks add: tmux reminders for long-running commands, Prettier auto-format +
 `tsc` check after TS/JS edits, `console.log` warnings, session memory
 persistence (save/load context across sessions), and compaction suggestions.
 
+## Daily usage
+
+Nothing to activate per project — user-scope plugins load in every directory you
+open Claude Code in. Start a session anywhere and the commands are there.
+
+A typical feature loop:
+
+```
+/plan add rate limiting to the upload endpoint   # plan first, waits for your CONFIRM
+/tdd                                             # tests first, then implementation
+/code-review                                     # security + quality pass on the diff
+/learn                                           # save anything reusable as a skill
+```
+
+Other commands by situation:
+
+- Build broken → `/build-fix`
+- Need browser tests → `/e2e`
+- Cleaning up → `/refactor-clean`
+- Big multi-part task → `/orchestrate` (chains agents sequentially)
+- Long session, want a save point → `/checkpoint`
+- Docs drifted from code → `/update-docs`
+
+Ruflo commands: `/swarm` (spin up a multi-agent team), `/watch` (monitor it),
+`/recall <query>` (semantic search over past sessions' memory), `/ruflo-memory`,
+`/workflow`, `/ruflo-status`. These shell out to `npx @claude-flow/cli`, which
+downloads on first use — expect a pause the first time.
+
+You mostly don't need to invoke agents by hand. Claude delegates to
+planner/architect/code-reviewer/etc. on its own; the slash commands are just
+explicit entry points.
+
+### Two things that surprise people
+
+- **`/code-review` may collide** with Claude Code's built-in command of the same
+  name. If you get the wrong one, disambiguate with
+  `/everything-claude-code:code-review`.
+- **Hooks fire automatically** once installed: Prettier reformats TS/JS after
+  edits, `tsc` errors get surfaced, `console.log` gets flagged, and session
+  context is saved/restored. If a hook is noisy, disable the whole plugin with
+  `claude plugin disable everything-claude-code@everything-claude-code` rather
+  than editing plugin files (edits get overwritten on update).
+
 ## Ruflo: plugin path vs. full install
 
 The plugins installed above are the **lite path** — slash commands and agent
