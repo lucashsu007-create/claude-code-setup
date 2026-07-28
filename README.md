@@ -151,6 +151,16 @@ claude plugin enable ruflo-swarm
 - [settings.reference.json](settings.reference.json) — snapshot of the
   `~/.claude/settings.json` this setup produces, for reference/diffing. The
   script does **not** copy it; `claude plugin` writes settings itself.
+- [templates/projects-CLAUDE.md](templates/projects-CLAUDE.md) — the workspace
+  `CLAUDE.md` that lives at `~/projects/CLAUDE.md`. Copy it there on a new
+  device and edit the project index to match:
+
+  ```bash
+  cp templates/projects-CLAUDE.md ~/projects/CLAUDE.md
+  ```
+
+  It's kept out of the repo root on purpose — a `CLAUDE.md` here would apply to
+  this repo instead of your workspace.
 
 ## Notes
 
