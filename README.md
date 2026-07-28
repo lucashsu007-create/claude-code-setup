@@ -371,6 +371,30 @@ where `/orchestrate` wins, where each step depends on the last:
 /orchestrate feature "add webhook delivery with retries"
 ```
 
+### Known upstream bug: 11 commands don't register
+
+**Claude Code only registers a `.md` file as a slash command if it starts with a
+YAML frontmatter block.** Only 4 of ECC's 15 command files have one
+(`plan`, `tdd`, `e2e`, `setup-pm`). The other 11 — including `orchestrate`,
+`verify`, `code-review`, and `learn` — ship as loose markdown and silently never
+appear. Typing `/orchestrate` does nothing.
+
+`setup.sh` fixes this automatically by running
+[scripts/fix-ecc-commands.sh](scripts/fix-ecc-commands.sh), which copies the
+affected files into `~/.claude/commands/` with the missing frontmatter added.
+It writes there rather than patching the plugin so the fix survives
+`claude plugin update` — **re-run it after any plugin update** to pick up
+upstream changes to the command bodies:
+
+```bash
+./scripts/fix-ecc-commands.sh
+```
+
+The **9 agents are unaffected** — their files all have correct frontmatter, so
+agent delegation works with or without this fix.
+
+Verified broken on 2026-07-29 against ECC `432485b`.
+
 ### Gotchas
 
 - **`/code-review` may collide** with Claude Code's built-in command of the same
@@ -435,6 +459,8 @@ claude plugin enable ruflo-swarm
 ## Files in this repo
 
 - [setup.sh](setup.sh) — the one-shot bootstrap
+- [scripts/fix-ecc-commands.sh](scripts/fix-ecc-commands.sh) — repairs the 11
+  ECC commands that ship without frontmatter; run after each plugin update
 - [settings.reference.json](settings.reference.json) — snapshot of the
   `~/.claude/settings.json` this setup produces, for reference/diffing. The
   script does **not** copy it; `claude plugin` writes settings itself.

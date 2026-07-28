@@ -42,7 +42,13 @@ for p in ruflo-core ruflo-swarm ruflo-rag-memory ruflo-workflows; do
   claude plugin install "$p@ruflo" --scope user
 done
 
-bold "4/4 Verifying"
+bold "4/5 Repairing ECC slash commands"
+# 11 of ECC's 15 command files ship without YAML frontmatter, so Claude Code
+# never registers them (/orchestrate, /verify, /code-review, ...). See the
+# script header for detail.
+"$(dirname "$0")/scripts/fix-ecc-commands.sh"
+
+bold "5/5 Verifying"
 claude plugin list
 
 bold "Done."
