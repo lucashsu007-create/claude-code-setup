@@ -240,13 +240,55 @@ exceeds 30%.
 | Before opening a PR | `/verify pre-pr` → `/code-review` |
 | Quarterly cleanup | `/refactor-clean` → `/verify` |
 
-### Ruflo commands
+### Where ruflo fits (and where it doesn't)
 
-`/swarm` spins up a coordinated multi-agent team, `/watch` live-streams its
-events, `/recall <query>` does semantic search over memory from past sessions,
-and `/ruflo-memory`, `/workflow`, and `/ruflo-status` manage memory, workflow
-templates, and health. These shell out to `npx @claude-flow/cli`, which
-downloads on first use — expect a pause the first time.
+**The two toolkits overlap on orchestration.** ECC's `/orchestrate` and ruflo's
+`/swarm` are competing answers to the same problem, not complementary halves:
+
+| | `/orchestrate` (ECC) | `/swarm` (ruflo) |
+|---|---|---|
+| Execution | Sequential chain | Parallel agents |
+| Structure | 4 fixed workflows, handoff docs between agents | Topology (mesh/hierarchical/star) + consensus |
+| Memory | None between runs | Shared namespace, persists across sessions |
+| Predictability | High — same script every time | Lower — agents self-organize |
+| Good for | Ordinary features, one coherent change | Wide parallel work across many files |
+
+Pick **one per task**. Running both means two orchestrators competing over the
+same files.
+
+**Default to the ECC loop.** For a solo dev on small-to-medium repos, the
+sequential `/plan` → `/tdd` → `/verify` → `/code-review` loop is faster and more
+predictable than a swarm. Swarm earns its overhead only when the work is
+genuinely parallel — a refactor touching 20 files, a security audit sweeping
+every endpoint, a framework migration. For "add one calculator," it's a tax.
+
+**The part of ruflo that is genuinely additive is memory.** ECC's `/learn`
+writes static skill files you have to think to reuse. Ruflo's `/recall` does
+semantic search over everything you've done before, across all projects:
+
+```
+/recall how did I handle Kalshi API rate limits
+/recall the pytest fixture pattern for mocking HTTP
+```
+
+That's worth using daily regardless of which orchestrator you pick. Store
+things worth keeping with `/ruflo-memory`.
+
+Other commands: `/watch` live-streams swarm events, `/workflow` manages reusable
+multi-step templates, `/ruflo-status` reports health.
+
+**A worked swarm example** — the case where it beats `/orchestrate`:
+
+```
+/swarm audit every API route in study-platform for missing input validation
+```
+
+Wide, parallel, no ordering constraint between files. Compare with the case
+where `/orchestrate` wins, where each step depends on the last:
+
+```
+/orchestrate feature "add webhook delivery with retries"
+```
 
 ### Gotchas
 
@@ -270,19 +312,18 @@ downloads on first use — expect a pause the first time.
 
 ## Ruflo: plugin path vs. full install
 
-The plugins installed above are the **lite path** — slash commands and agent
-definitions only, zero files in your workspace.
+The plugin install adds **zero files to your workspace** — and, contrary to the
+[ruflo README's comparison table](https://github.com/ruvnet/ruflo#quick-start),
+it **does** register the MCP server. Verified on 2026-07-28 against ruflo daemon
+v3.32.26: `system_status` reports healthy with ~300 MCP tools available,
+including `swarm_init`, `agent_spawn`, and `memory_store`. That table appears to
+be out of date; don't trust it over what `/ruflo-status` actually reports.
 
-For the **full ruflo loop** (MCP server with `memory_store` / `swarm_init` /
-`agent_spawn`, hooks, daemon, 98 agents), run inside a specific project:
-
-```bash
-npx ruflo init
-```
-
-This writes `.claude/`, `.claude-flow/`, and `CLAUDE.md` into that project and
-registers the ruflo MCP server. Only do this in projects where you want heavy
-orchestration — the lite plugins are enough for most work.
+So `npx ruflo init` is **not** needed for swarm or memory to work. What init
+adds beyond the plugins is the on-disk project scaffolding — `.claude/`,
+`.claude-flow/`, a generated `CLAUDE.md`, hooks, and the full 98-agent
+catalogue. Skip it unless you want that scaffolding in a specific repo; note it
+will also write a `CLAUDE.md` that competes with your existing one.
 
 Other ruflo plugins worth knowing (install with
 `claude plugin install <name>@ruflo --scope user`): `ruflo-autopilot`
