@@ -42,13 +42,25 @@ for p in ruflo-core ruflo-swarm ruflo-rag-memory ruflo-workflows; do
   claude plugin install "$p@ruflo" --scope user
 done
 
-bold "4/5 Repairing ECC slash commands"
+bold "4/6 Installing ruflo CLI globally (performance-critical)"
+# Ruflo registers hooks on EVERY file edit and bash command. Its shim looks for
+# a local `ruflo` binary and otherwise falls back to `npx ruflo@latest`, which
+# hits the npm registry on every single fire and can hang for minutes. The
+# plugin install alone does NOT provide the binary. Installing it globally is
+# what keeps hook latency at ~0.5s instead of 30s-to-forever.
+if command -v ruflo >/dev/null 2>&1; then
+  ok "ruflo CLI already present ($(command -v ruflo))"
+else
+  npm install -g ruflo && ok "ruflo CLI installed"
+fi
+
+bold "5/6 Repairing ECC slash commands"
 # 11 of ECC's 15 command files ship without YAML frontmatter, so Claude Code
 # never registers them (/orchestrate, /verify, /code-review, ...). See the
 # script header for detail.
 "$(dirname "$0")/scripts/fix-ecc-commands.sh"
 
-bold "5/5 Verifying"
+bold "6/6 Verifying"
 claude plugin list
 
 bold "Done."

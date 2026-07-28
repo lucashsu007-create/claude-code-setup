@@ -371,6 +371,47 @@ where `/orchestrate` wins, where each step depends on the last:
 /orchestrate feature "add webhook delivery with retries"
 ```
 
+### Sessions freezing for minutes? Install the ruflo CLI
+
+**Symptom:** a session hangs for 30s–10min at a static token count, on any
+project, often while "creating".
+
+**Cause:** ruflo registers hooks on *every* file edit and *every* bash command
+(`PreToolUse` and `PostToolUse` on both `Bash` and `Write|Edit|MultiEdit`). The
+shim at `ruflo-core/scripts/ruflo-hook.cjs` prefers a locally-installed `ruflo`
+binary and otherwise falls back to `npx --prefer-offline --yes ruflo@latest` —
+a fresh npm-registry round trip **on every fire**, with a 30s internal timeout.
+Installing the plugin does **not** install that binary.
+
+**Fix** (now part of `setup.sh`):
+
+```bash
+npm install -g ruflo
+```
+
+Measured on 2026-07-29 — post-edit hook latency:
+
+| | Time |
+|---|---|
+| No local binary (npx fallback) | **>120s, timed out** |
+| Global `ruflo` installed | **0.59s** |
+
+**Parallel sessions amplify this.** Each session fires its own hooks, so N
+concurrent sessions means N simultaneous npx fetches. They're not the root
+cause, but they make it much worse. Leaked `npm exec ruflo@latest` processes
+can also survive across days — check with:
+
+```bash
+ps aux | grep 'npm exec ruflo' | grep -v grep
+pkill -f 'npm exec ruflo@latest'   # safe to kill; they're stuck hook fires
+```
+
+If you don't want ruflo's hooks at all, set `RUFLO_HOOK_SKIP_NPX=1` in your
+environment (skips the npx fallback so hooks no-op without a binary), or
+disable the plugin outright with
+`claude plugin disable ruflo-core@ruflo` — which also removes swarm, memory,
+and the MCP server.
+
 ### Known upstream bug: 11 commands don't register
 
 **Claude Code only registers a `.md` file as a slash command if it starts with a
