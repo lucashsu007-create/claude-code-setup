@@ -240,6 +240,87 @@ exceeds 30%.
 | Before opening a PR | `/verify pre-pr` → `/code-review` |
 | Quarterly cleanup | `/refactor-clean` → `/verify` |
 
+### Multi-agent workflows
+
+Installing the plugin registered all nine agents — there is no further setup.
+Confirm with `claude plugin details everything-claude-code`. The question is how
+to drive them, and there are three modes that escalate in how much control you
+hand over.
+
+**1. Automatic delegation (the default).** Each agent's `description` frontmatter
+contains trigger language — *"Use PROACTIVELY when build fails"*, *"MUST BE USED
+for all code changes"*. Claude reads that to decide when to delegate on its own.
+You invoke nothing. This accounts for most multi-agent behavior you'll actually
+see.
+
+**2. Explicit invocation** — force a specific agent:
+
+```
+use the security-reviewer agent on backend-api/src/auth
+```
+
+**3. Chains via `/orchestrate`** — a fixed sequence with a structured handoff
+document (context, findings, files modified, open questions) passed between
+agents. Four presets plus custom ordering:
+
+```
+/orchestrate feature "add webhook delivery with retries"
+/orchestrate custom "architect,tdd-guide,code-reviewer" "redesign the caching layer"
+```
+
+#### The nine agents, and what they can touch
+
+| Agent | Tools | Can edit code? |
+|---|---|---|
+| `planner` | Read, Grep, Glob | **No** |
+| `architect` | Read, Grep, Glob | **No** |
+| `code-reviewer` | Read, Grep, Glob, Bash | **No** |
+| `tdd-guide` | Read, Write, Edit, Bash, Grep | Yes |
+| `build-error-resolver` | Read, Write, Edit, Bash, Grep, Glob | Yes |
+| `security-reviewer` | Read, Write, Edit, Bash, Grep, Glob | Yes |
+| `e2e-runner` | Read, Write, Edit, Bash, Grep, Glob | Yes |
+| `refactor-cleaner` | Read, Write, Edit, Bash, Grep, Glob | Yes |
+| `doc-updater` | Read, Write, Edit, Bash, Grep, Glob | Yes |
+
+The read-only three are deliberate: agents that *reason about* your code are
+structurally prevented from changing it, so a planning or review step can never
+quietly start editing files. All nine are pinned to `model: opus`.
+
+#### Writing your own agent
+
+Put a markdown file in `~/.claude/agents/`. This works identically in the
+desktop app and the CLI, and unlike editing plugin files it survives plugin
+updates:
+
+```markdown
+---
+name: kalshi-risk-reviewer
+description: Reviews any change touching order placement or position sizing. Use PROACTIVELY on kalshi/paper and kalshi/model.
+tools: Read, Grep, Glob, Bash
+model: opus
+---
+
+You review paper-trading logic for risk errors. Flag anything that could
+place a live order, any unbounded position size, and any probability that
+isn't clamped to [0,1].
+```
+
+Restart the session to load it. Give custom agents read-only tools unless they
+genuinely need to write — that's the pattern ECC uses for its own reviewers.
+
+#### Desktop app notes
+
+- The `/agents` management panel is an interactive terminal dialog. In the
+  desktop app, use the file-based approach above; it does everything the panel
+  would.
+- Agent chains are long-running — `/orchestrate feature` runs four agents
+  sequentially. That's exactly the case where it beats driving the loop
+  yourself: start it and step away.
+- **Context is the real limit.** Each agent in a chain consumes context, and a
+  long `/orchestrate` run can hit compaction mid-chain and lose handoff detail.
+  For large tasks, running `/plan` → `/tdd` → `/verify` → `/code-review` manually
+  gives you checkpoints between steps where you can course-correct.
+
 ### Where ruflo fits (and where it doesn't)
 
 **The two toolkits overlap on orchestration.** ECC's `/orchestrate` and ruflo's
