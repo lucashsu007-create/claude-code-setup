@@ -6,9 +6,8 @@ new device reproduces the full setup:
 - **[everything-claude-code](https://github.com/worldflowai/everything-claude-code)** —
   agents, slash commands, skills, rules, and hooks from an Anthropic hackathon
   winner. Installed as a Claude Code plugin.
-- **[ruflo](https://github.com/ruvnet/ruflo)** (formerly claude-flow) — agent
-  orchestration: swarms, persistent memory, workflows. Core plugins installed
-  globally; the full harness is opt-in per project.
+
+Ruflo was trialled alongside ECC and **removed** — see "Why ruflo was removed".
 
 ## New device setup
 
@@ -31,10 +30,6 @@ machine — no per-project files are created by the script.
 | Plugin | Marketplace | What it provides |
 |---|---|---|
 | `everything-claude-code` | `worldflowai/everything-claude-code` | 9 agents, 15 commands, 13 skills, hooks, rules |
-| `ruflo-core` | `ruvnet/ruflo` | Ruflo foundation — server, health checks, plugin discovery |
-| `ruflo-swarm` | `ruvnet/ruflo` | Multi-agent team coordination |
-| `ruflo-rag-memory` | `ruvnet/ruflo` | Hybrid-search retrieval memory |
-| `ruflo-workflows` | `ruvnet/ruflo` | Reusable multi-step task templates |
 
 ### Key slash commands from everything-claude-code
 
@@ -321,96 +316,49 @@ genuinely need to write — that's the pattern ECC uses for its own reviewers.
   For large tasks, running `/plan` → `/tdd` → `/verify` → `/code-review` manually
   gives you checkpoints between steps where you can course-correct.
 
-### Where ruflo fits (and where it doesn't)
+### Why ruflo was removed
 
-**The two toolkits overlap on orchestration.** ECC's `/orchestrate` and ruflo's
-`/swarm` are competing answers to the same problem, not complementary halves:
+Ruflo (formerly claude-flow) was installed alongside ECC on 2026-07-28 and
+removed on 2026-07-29. Recording why, so it isn't reinstated by reflex:
 
-| | `/orchestrate` (ECC) | `/swarm` (ruflo) |
-|---|---|---|
-| Execution | Sequential chain | Parallel agents |
-| Structure | 4 fixed workflows, handoff docs between agents | Topology (mesh/hierarchical/star) + consensus |
-| Memory | None between runs | Shared namespace, persists across sessions |
-| Predictability | High — same script every time | Lower — agents self-organize |
-| Good for | Ordinary features, one coherent change | Wide parallel work across many files |
+**1. It duplicated what ECC already did.** Ruflo's `/swarm` and ECC's
+`/orchestrate` are competing answers to the same problem — multi-agent
+coordination. Running both means two orchestrators over the same files. The
+sequential ECC loop proved sufficient for solo work on small-to-medium repos.
 
-Pick **one per task**. Running both means two orchestrators competing over the
-same files.
+**2. It wrote large artifacts into project repos.** It created `.claude-flow/`
+directories in `study-platform/` (620K, including a 19,951-line
+`neural/patterns.json`) and `lucas-hsu-website/` (508K) — **not gitignored**,
+so one `git add -A` from being committed. It also ran a background daemon per
+project.
 
-**Default to the ECC loop.** For a solo dev on small-to-medium repos, the
-sequential `/plan` → `/tdd` → `/verify` → `/code-review` loop is faster and more
-predictable than a swarm. Swarm earns its overhead only when the work is
-genuinely parallel — a refactor touching 20 files, a security audit sweeping
-every endpoint, a framework migration. For "add one calculator," it's a tax.
+**3. Its hooks fired on every edit and every bash command,** shelling out to
+`npx ruflo@latest` when no local binary existed. Measured post-edit latency was
+**>120s (timed out)** without a global install, ~0.6s with one. Fixable, but
+only by adding a global npm package to keep a plugin's hooks usable.
 
-**The part of ruflo that is genuinely additive is memory.** ECC's `/learn`
-writes static skill files you have to think to reuse. Ruflo's `/recall` does
-semantic search over everything you've done before, across all projects:
+The one genuinely additive feature was `/recall` — cross-session semantic
+memory, which ECC lacks. Not worth the above.
 
-```
-/recall how did I handle Kalshi API rate limits
-/recall the pytest fixture pattern for mocking HTTP
-```
-
-That's worth using daily regardless of which orchestrator you pick. Store
-things worth keeping with `/ruflo-memory`.
-
-Other commands: `/watch` live-streams swarm events, `/workflow` manages reusable
-multi-step templates, `/ruflo-status` reports health.
-
-**A worked swarm example** — the case where it beats `/orchestrate`:
-
-```
-/swarm audit every API route in study-platform for missing input validation
-```
-
-Wide, parallel, no ordering constraint between files. Compare with the case
-where `/orchestrate` wins, where each step depends on the last:
-
-```
-/orchestrate feature "add webhook delivery with retries"
-```
-
-### Sessions freezing for minutes? Install the ruflo CLI
-
-**Symptom:** a session hangs for 30s–10min at a static token count, on any
-project, often while "creating".
-
-**Cause:** ruflo registers hooks on *every* file edit and *every* bash command
-(`PreToolUse` and `PostToolUse` on both `Bash` and `Write|Edit|MultiEdit`). The
-shim at `ruflo-core/scripts/ruflo-hook.cjs` prefers a locally-installed `ruflo`
-binary and otherwise falls back to `npx --prefer-offline --yes ruflo@latest` —
-a fresh npm-registry round trip **on every fire**, with a 30s internal timeout.
-Installing the plugin does **not** install that binary.
-
-**Fix** (now part of `setup.sh`):
+**If reinstating**, do it deliberately and add `.claude-flow/` to your global
+gitignore first:
 
 ```bash
-npm install -g ruflo
+claude plugin marketplace add ruvnet/ruflo
+claude plugin install ruflo-rag-memory@ruflo --scope user
+npm install -g ruflo   # REQUIRED, or hooks hang on every edit
 ```
 
-Measured on 2026-07-29 — post-edit hook latency:
-
-| | Time |
-|---|---|
-| No local binary (npx fallback) | **>120s, timed out** |
-| Global `ruflo` installed | **0.59s** |
-
-**Parallel sessions amplify this.** Each session fires its own hooks, so N
-concurrent sessions means N simultaneous npx fetches. They're not the root
-cause, but they make it much worse. Leaked `npm exec ruflo@latest` processes
-can also survive across days — check with:
+**Removal, for reference** — what was run to undo it:
 
 ```bash
-ps aux | grep 'npm exec ruflo' | grep -v grep
-pkill -f 'npm exec ruflo@latest'   # safe to kill; they're stuck hook fires
+for p in ruflo-core ruflo-swarm ruflo-rag-memory ruflo-workflows; do
+  claude plugin uninstall "$p@ruflo"
+done
+claude plugin marketplace remove ruflo
+npm uninstall -g ruflo
+rm -rf <project>/.claude-flow      # untracked; safe to delete
 ```
-
-If you don't want ruflo's hooks at all, set `RUFLO_HOOK_SKIP_NPX=1` in your
-environment (skips the npx fallback so hooks no-op without a binary), or
-disable the plugin outright with
-`claude plugin disable ruflo-core@ruflo` — which also removes swarm, memory,
-and the MCP server.
 
 ### Known upstream bug: 11 commands don't register
 
@@ -456,28 +404,6 @@ Verified broken on 2026-07-29 against ECC `432485b`.
   and the rest on its own. The slash commands are explicit entry points for when
   you want to force a specific script.
 
-## Ruflo: plugin path vs. full install
-
-The plugin install adds **zero files to your workspace** — and, contrary to the
-[ruflo README's comparison table](https://github.com/ruvnet/ruflo#quick-start),
-it **does** register the MCP server. Verified on 2026-07-28 against ruflo daemon
-v3.32.26: `system_status` reports healthy with ~300 MCP tools available,
-including `swarm_init`, `agent_spawn`, and `memory_store`. That table appears to
-be out of date; don't trust it over what `/ruflo-status` actually reports.
-
-So `npx ruflo init` is **not** needed for swarm or memory to work. What init
-adds beyond the plugins is the on-disk project scaffolding — `.claude/`,
-`.claude-flow/`, a generated `CLAUDE.md`, hooks, and the full 98-agent
-catalogue. Skip it unless you want that scaffolding in a specific repo; note it
-will also write a `CLAUDE.md` that competes with your existing one.
-
-Other ruflo plugins worth knowing (install with
-`claude plugin install <name>@ruflo --scope user`): `ruflo-autopilot`
-(autonomous loops), `ruflo-loop-workers` (scheduled background tasks),
-`ruflo-federation` (cross-machine agents), `ruflo-agentdb` (vector DB memory),
-`ruflo-rvf` (memory snapshots across sessions). Full list: 35 plugins in the
-[ruflo README](https://github.com/ruvnet/ruflo#quick-start).
-
 ## Useful commands
 
 ```bash
@@ -486,15 +412,14 @@ claude plugin list
 
 # Update marketplaces + plugins to latest
 claude plugin marketplace update everything-claude-code
-claude plugin marketplace update ruflo
 claude plugin update everything-claude-code@everything-claude-code
 
 # Inspect a plugin's components and token cost before enabling more
-claude plugin details ruflo-swarm
+claude plugin details everything-claude-code
 
 # Disable / re-enable without uninstalling
-claude plugin disable ruflo-swarm
-claude plugin enable ruflo-swarm
+claude plugin disable everything-claude-code@everything-claude-code
+claude plugin enable everything-claude-code@everything-claude-code
 ```
 
 ## Files in this repo
@@ -520,5 +445,5 @@ claude plugin enable ruflo-swarm
 
 - Plugin state lives in `~/.claude/settings.json` (`enabledPlugins`,
   `extraKnownMarketplaces`) and caches under `~/.claude/plugins/`.
-- Set up on 2026-07-28 with Claude Code 2.1.212, everything-claude-code
-  `432485b`, ruflo-core 0.2.4.
+- Set up 2026-07-28 with Claude Code 2.1.212 and everything-claude-code
+  `432485b`. Ruflo trialled and removed 2026-07-29.

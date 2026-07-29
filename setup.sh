@@ -30,44 +30,27 @@ else
   warn "GitHub CLI missing or not authenticated (optional — needed for PR workflows). Run: gh auth login"
 fi
 
-bold "2/4 Adding plugin marketplaces"
+bold "2/4 Adding plugin marketplace"
 claude plugin marketplace add worldflowai/everything-claude-code || warn "everything-claude-code marketplace already added"
-claude plugin marketplace add ruvnet/ruflo || warn "ruflo marketplace already added"
 
 bold "3/4 Installing plugins (user scope — available in all projects)"
 claude plugin install everything-claude-code@everything-claude-code --scope user
 
-# Baseline ruflo plugin set. See README for the other 30+ optional plugins.
-for p in ruflo-core ruflo-swarm ruflo-rag-memory ruflo-workflows; do
-  claude plugin install "$p@ruflo" --scope user
-done
+# NOTE: ruflo was trialled and deliberately removed on 2026-07-29. See
+# "Why ruflo was removed" in README.md before reinstating it.
 
-bold "4/6 Installing ruflo CLI globally (performance-critical)"
-# Ruflo registers hooks on EVERY file edit and bash command. Its shim looks for
-# a local `ruflo` binary and otherwise falls back to `npx ruflo@latest`, which
-# hits the npm registry on every single fire and can hang for minutes. The
-# plugin install alone does NOT provide the binary. Installing it globally is
-# what keeps hook latency at ~0.5s instead of 30s-to-forever.
-if command -v ruflo >/dev/null 2>&1; then
-  ok "ruflo CLI already present ($(command -v ruflo))"
-else
-  npm install -g ruflo && ok "ruflo CLI installed"
-fi
-
-bold "5/6 Repairing ECC slash commands"
+bold "4/4 Repairing ECC slash commands"
 # 11 of ECC's 15 command files ship without YAML frontmatter, so Claude Code
 # never registers them (/orchestrate, /verify, /code-review, ...). See the
 # script header for detail.
 "$(dirname "$0")/scripts/fix-ecc-commands.sh"
 
-bold "6/6 Verifying"
+bold "Verifying"
 claude plugin list
 
 bold "Done."
 echo
-echo "Optional, per project: run the FULL ruflo harness (MCP server, hooks, 98 agents)"
-echo "inside a project directory with:"
-echo
-echo "    npx ruflo init"
+echo "Restart Claude Code (fully quit the desktop app) to load the plugin,"
+echo "commands, agents, and hooks."
 echo
 echo "See README.md in this repo for what each piece does and how to update."
