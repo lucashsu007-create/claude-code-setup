@@ -232,6 +232,7 @@ exceeds 30%.
 | Build won't compile | `/build-fix` → `/verify` |
 | Touching auth, payments, user input | add `/orchestrate security` before merge |
 | Big task, want to step away | `/orchestrate feature "..."` |
+| Overnight run | ~80-min checkpointed chunks via `/loop` — see "Overnight runs" below |
 | Before opening a PR | `/verify pre-pr` → `/code-review` |
 | Quarterly cleanup | `/refactor-clean` → `/verify` |
 
@@ -315,6 +316,62 @@ genuinely need to write — that's the pattern ECC uses for its own reviewers.
   long `/orchestrate` run can hit compaction mid-chain and lose handoff detail.
   For large tasks, running `/plan` → `/tdd` → `/verify` → `/code-review` manually
   gives you checkpoints between steps where you can course-correct.
+
+### Overnight runs: checkpointed chunks
+
+`/orchestrate feature` covers "start it and step away" for an afternoon. A run
+meant to go all night needs different structure, because the two things that
+kill unattended runs — a permission prompt nobody answers, and a wedged agent
+with hours of uncommitted work behind it — both get worse with duration.
+
+The fix is not asking the agent to watch a clock; it can't reliably self-time.
+It's slicing the work so each chunk is **~80 minutes of scope**, letting a
+scheduler fire the chunks, and ending every chunk in a durable checkpoint:
+`/verify` green → commit → `.claude/checkpoints.log`. Then a failure at 3am
+costs one chunk, not the night.
+
+**1. Plan first, and size steps to the cadence.** Run `/plan` before bed and
+split any step that looks bigger than ~90 minutes. Save the step list to
+`.claude/overnight-plan.txt` — a text file, because the new-`.md` hook would
+block a `PLAN.md`.
+
+**2. Drive the cadence with `/loop`, run `/orchestrate` inside each iteration.**
+Each firing does exactly one step and exits:
+
+```
+/loop 80m Read .claude/overnight-plan.txt and .claude/checkpoints.log. Find the
+first plan step with no checkpoint. Do ONLY that step via /orchestrate feature
+"<step>", then /checkpoint create "step-N". You are pre-authorized to commit on
+branch overnight/<feature>. If /verify fails twice, log the failure to
+.claude/checkpoints.log and end this iteration. When every step is
+checkpointed, stop the loop.
+```
+
+The read-log → do-next-step → stop shape is the biggest completion-rate lever:
+every iteration is resumable and idempotent, and each one starts with fresh
+context reading durable state instead of a compacted memory of hour six. If the
+scheduler rejects `80m`, anything in the 60–90 band works — the slicing
+matters, the exact number doesn't.
+
+**3. Pre-clear the stalls.** A permission prompt at 1am means 0% completion for
+the rest of the night:
+
+- Start the session in a permission mode that auto-accepts edits, and allowlist
+  the test/build commands — `/fewer-permission-prompts` builds the allowlist
+  from session history.
+- The workspace convention is "commit only when asked", so the loop prompt must
+  pre-authorize commits explicitly, on a named branch (never the default
+  branch).
+- WSL2: if the Windows host sleeps, everything stops. Keep the machine awake
+  and run the session inside tmux.
+
+**Why not one giant `/orchestrate` run with `/checkpoint` between agents?** Do
+that *within* a chunk, but as the whole-night structure it fails the math: its
+checkpoints land wherever phases happen to end rather than on a cadence, one
+wedged agent blocks everything behind it, and context degrades across an
+eight-hour session (see "Context is the real limit" above). A loop of small
+orchestrations finishes 8 of 10 steps on a bad night; a monolithic run finishes
+0 of 3.
 
 ### Why ruflo was removed
 
