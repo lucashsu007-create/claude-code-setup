@@ -13,9 +13,14 @@ file. Treat this as the baseline; the project-level file wins on conflict.
 | Project | Stack | Test command |
 |---|---|---|
 | `study-platform/` | Next.js 16 + NestJS + FastAPI (see its own CLAUDE.md) | per-service |
+| `CSA/` | Concept prototype for CSA Rotterdam IT Committee (see its own CLAUDE.md) | not scaffolded yet |
+| `ai-automation/` | Python 3.10+, anthropic (`src/` layout, pkg `ai_automation`) | `pytest` |
+| `deeper-apps-leads/` | Python 3.10+, requests/bs4/feedparser (`src/` layout, pkg `leadgen`) | `pytest` |
 | `kalshi/` | Python 3.10+, requests, numpy, duckdb | `pytest` |
 | `market-data-toolkit/` | Python 3.10+, stdlib-only (`src/` layout, pkg `mdt`) | `pytest` |
+| `pairs-trading/` | Python 3.10+, numpy/statsmodels/PyWavelets/hmmlearn (`src/` layout, pkg `pairs`) | `pytest` |
 | `lucas-hsu-website/` | Astro 7 + TypeScript | `npm test` (Playwright) |
+| `lrl-systems/` | Next.js 16 + NestJS 11 monorepo, pnpm + Turborepo | `pnpm test` (Vitest), `pnpm test:e2e` (Playwright) |
 | `fullhouse-hackathon-write-up-repo/` | Python, poker bot — archived write-up | n/a |
 | `claude-code-setup/` | Bash — Claude Code bootstrap for new devices | n/a |
 
@@ -47,8 +52,8 @@ Situational, **not** part of every feature:
 
 ## Tooling caveat: Python projects
 
-The installed hooks and some commands are JS/TS-oriented. In `kalshi/` and
-`market-data-toolkit/`:
+The installed hooks and some commands are JS/TS-oriented. In `kalshi/`,
+`market-data-toolkit/`, and `pairs-trading/`:
 
 - The auto-format (Prettier), `tsc` check, and `console.log` hooks **do not
   fire** — they match `.ts/.tsx/.js/.jsx` only. Formatting is on you.
@@ -56,9 +61,9 @@ The installed hooks and some commands are JS/TS-oriented. In `kalshi/` and
   `pytest --cov` instead.
 - `/verify` has no build or typecheck step to run; expect lint + `pytest` only.
 
-Both Python projects use pytest with `testpaths = ["tests"]`.
-`market-data-toolkit` is `src/`-layout (`pythonpath = ["src"]`), `kalshi` is
-flat (`pythonpath = ["."]`).
+All three use pytest with `testpaths = ["tests"]`. `market-data-toolkit` and
+`pairs-trading` are `src/`-layout (`pythonpath = ["src"]`), `kalshi` is flat
+(`pythonpath = ["."]`).
 
 ## Conventions
 
@@ -67,6 +72,28 @@ flat (`pythonpath = ["."]`).
   extras (`pytest`, `pytest-cov`) are fine.
 - `kalshi` is paper-trading only. Anything that could place a real order needs
   an explicit go-ahead, not an inferred one.
+- `deeper-apps-leads` scrapes third-party sites and stores personal data under
+  GDPR. Two standing rules: robots.txt is honoured through `leadgen.robots`
+  with no bypass on the crawling path, and the repo contains no message sender
+  — outreach is rendered and reviewed by hand. Both need an explicit
+  go-ahead to change, not an inferred one.
 - Don't create new `.md` files for documentation — a hook blocks it. Put
   documentation in the project's existing `README.md`.
-- Commit only when asked. If on the default branch, branch first.
+
+## Git — standing permission
+
+Committing and merging no longer need to be asked for. Granted 2026-08-10,
+replacing the previous "commit only when asked" rule.
+
+- **Commit freely**, at sensible checkpoints, without confirming first.
+- **Merge freely** — branch for anything non-trivial, then merge back when the
+  work is green. Branching first on the default branch is still the habit, but
+  a direct commit to `main` is fine for small or self-contained changes.
+- **Pushing still gets confirmed.** A push is outward-facing: it publishes, and
+  what lands on a remote can be cached or indexed even if later deleted. Same
+  for opening PRs. Ask first. (Most repos here have no remote configured, so
+  this rarely comes up.)
+- Never commit secrets or operational data. Every project's `.gitignore`
+  already excludes `.env`, `*.db`, `cache/` and `exports/` — check `git status`
+  before a first commit in a new repo rather than trusting that blindly.
+- Commit messages: say why, not just what. End with the `Co-Authored-By` line.
