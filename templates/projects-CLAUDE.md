@@ -5,8 +5,9 @@ subdirectory is its own git repo with its own stack, tests, and dependencies.
 Never assume a change in one project affects another, and never run a build or
 test command from this directory — always `cd` into the specific project first.
 
-Projects with their own `CLAUDE.md` (currently `study-platform/`) override this
-file. Treat this as the baseline; the project-level file wins on conflict.
+Projects with their own `CLAUDE.md` (currently `study-platform/`, `CSA/`, and
+`claude-video/`) override this file. Treat this as the baseline; the
+project-level file wins on conflict.
 
 ## Project index
 
@@ -23,6 +24,7 @@ file. Treat this as the baseline; the project-level file wins on conflict.
 | `lrl-systems/` | Next.js 16 + NestJS 11 monorepo, pnpm + Turborepo | `pnpm test` (Vitest), `pnpm test:e2e` (Playwright) |
 | `fullhouse-hackathon-write-up-repo/` | Python, poker bot — archived write-up | n/a |
 | `claude-code-setup/` | Bash — Claude Code bootstrap for new devices | n/a |
+| `claude-video/` | Python, stdlib-only — vendored upstream; provides the `/watch` skill, symlinked into `~/.claude/skills/` | `python3 -m pytest -q` (needs ffmpeg) |
 
 Default branch is `main` everywhere except `claude-code-setup` (`master`).
 
