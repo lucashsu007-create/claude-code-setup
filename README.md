@@ -31,6 +31,33 @@ machine — no per-project files are created by the script.
 |---|---|---|
 | `everything-claude-code` | `worldflowai/everything-claude-code` | 9 agents, 15 commands, 13 skills, hooks, rules |
 
+### Skills from this repo (user scope)
+
+`setup.sh` links every `skills/<name>/` into `~/.claude/skills/<name>`, which
+makes it a personal skill on this device. They are symlinks, so pulling this
+repo updates them.
+
+| Skill | What it's for |
+|---|---|
+| [`website-copy`](skills/website-copy/SKILL.md) | Writing and reviewing customer-facing website copy, in English and Dutch, so it sounds like the business talking instead of like AI. Comes with `copy_audit.py`, a scanner that pulls a page's visible text and flags the usual tells. |
+
+Personal skills don't exist in cloud sessions or on a machine that hasn't run
+this setup, so each skill is also committed into the repos under `~/projects`
+as `.claude/skills/<name>/`. Where the personal skill is installed, it takes
+precedence over the repo's copy. After changing a skill here, send the copies
+out again:
+
+```bash
+scripts/sync-skill.sh website-copy --dry-run   # show what would happen
+scripts/sync-skill.sh website-copy             # copy and commit in every repo; never pushes
+```
+
+It commits only the skill's own path, on each repo's default branch, going
+through a temporary worktree when another branch is checked out. A few repos
+are handled differently, with the reasons in the script: `csa-main` and
+`claude-video` are skipped, and `study-platform` and `csa-platform` get a local
+`chore/<skill>-skill` branch to push as a pull request.
+
 ### Key slash commands from everything-claude-code
 
 | Command | Purpose |
@@ -484,6 +511,10 @@ claude plugin enable everything-claude-code@everything-claude-code
 - [setup.sh](setup.sh) — the one-shot bootstrap
 - [scripts/fix-ecc-commands.sh](scripts/fix-ecc-commands.sh) — repairs the 11
   ECC commands that ship without frontmatter; run after each plugin update
+- [skills/](skills/) — skills that `setup.sh` links into `~/.claude/skills`;
+  see "Skills from this repo" above
+- [scripts/sync-skill.sh](scripts/sync-skill.sh) — copies one of those skills
+  into every repo under `~/projects` and commits it there
 - [settings.reference.json](settings.reference.json) — snapshot of the
   `~/.claude/settings.json` this setup produces, for reference/diffing. The
   script does **not** copy it; `claude plugin` writes settings itself.
